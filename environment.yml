@@ -1,0 +1,21 @@
+name: path
+channels:
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - torch>=2.2.0
+      - transformers>=4.40.0
+      - peft>=0.10.0
+      - opacus>=1.5.0
+
+      - datasets>=2.18.0
+      - accelerate>=0.28.0
+      - sentencepiece
+      - protobuf
+      - tensorboard
+      - tqdm
+      - black

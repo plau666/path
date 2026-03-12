@@ -1,0 +1,153 @@
+# PATH — Private Adaptive Training with Heterogeneity
+
+Differentially private fine-tuning framework for causal language models using **Opacus + LoRA**. Supports multi-GPU training via Opacus's `DifferentiallyPrivateDistributedDataParallel` (DPDDP).
+
+## Setup
+
+```bash
+conda env create -f environment.yml
+conda activate path
+# or
+pip install -r requirements.txt
+```
+
+Requires: PyTorch, Transformers, PEFT, Opacus.
+
+## Quick Start
+
+All settings (model, data paths, hyperparameters, privacy budget) live in a JSON config file. A single launch script handles both DP and non-DP runs:
+
+```bash
+# DP fine-tuning (epsilon=10)
+bash scripts/launch.sh configs/gemma3_1b_lora_dp.json
+
+# Non-DP baseline
+bash scripts/launch.sh configs/gemma3_1b_lora_nodp.json
+
+# Override any config value via CLI
+bash scripts/launch.sh configs/gemma3_1b_lora_dp.json --target_epsilon 1
+bash scripts/launch.sh configs/gemma3_1b_lora_dp.json --noise_multiplier 1e-6
+bash scripts/launch.sh configs/gemma3_1b_lora_dp.json --max_steps 5000 --lr 1e-4
+```
+
+Single-GPU (no torchrun):
+```bash
+python run.py --config configs/gemma3_1b_lora_dp.json
+```
+
+Control GPU count:
+```bash
+NGPUS=4 bash scripts/launch.sh configs/gemma3_1b_lora_dp.json
+```
+
+## Config Files
+
+All training parameters can be specified in a JSON config. CLI arguments override config values.
+
+**`configs/gemma3_1b_lora_dp.json`** — DP run:
+```json
+{
+    "model": "google/gemma-3-1b-pt",
+    "lora_r": 128, "lora_alpha": 256,
+    "train_data": "data/yelp_train.jsonl",
+    "eval_data": "data/yelp_full_test.jsonl",
+    "output_dir": "output/dp_eps10",
+    "target_epsilon": 10.0,
+    "max_grad_norm": 0.1,
+    "batch_size": 8, "max_physical_batch_size": 4,
+    "max_steps": 15000, "lr": 5e-4, "warmup_steps": 200
+}
+```
+
+**`configs/gemma3_1b_lora_nodp.json`** — Non-DP baseline (adds `"no_dp": true`, omits DP-specific fields).
+
+## Data Format
+
+JSONL with `input` and `output` fields (configurable via `--input_field` / `--output_field`):
+
+```jsonl
+{"input": "This restaurant was amazing, great food and service!", "output": "positive"}
+{"input": "Terrible experience, never coming back.", "output": "negative"}
+```
+
+The training pipeline wraps inputs in the Gemma IT chat template:
+```
+<start_of_turn>user
+{input}<end_of_turn>
+<start_of_turn>model
+{output}<end_of_turn>
+```
+
+Loss is computed only on output tokens (input tokens are masked with `-100`).
+
+## Architecture
+
+```
+run.py                  # Entry point: config loading, model/data/optimizer setup, training dispatch
+generate.py             # Inference: load a trained LoRA adapter and generate text
+path/
+├── model.py            # Model loading (HuggingFace), LoRA (PEFT), Opacus validation
+├── data.py             # JSONL dataset, Gemma IT template, tokenization with output-only loss masking
+├── privacy.py          # Opacus PrivacyEngine setup, BatchMemoryManager, epsilon tracking
+├── trainer.py          # Step-based training loop, eval, DP gradient diagnostics
+├── distributed.py      # DPDDP (Opacus) for DP, standard DDP for non-DP
+└── utils.py            # Seeding, logging, checkpoint save/load
+configs/                # JSON config files
+scripts/
+└── launch.sh           # Single launch script for all runs
+```
+
+### Training Pipeline
+
+1. **Model**: Load HuggingFace causal LM → apply LoRA adapters (dropout=0) → validate for Opacus
+2. **Data**: Load JSONL → format with Gemma IT template → tokenize with output-only loss masking
+3. **Privacy** (DP only): Wrap model/optimizer/dataloader with Opacus `PrivacyEngine`. Noise multiplier is computed via the PRV accountant from `target_epsilon`, or set directly via `--noise_multiplier`.
+4. **Distributed** (multi-GPU): DP uses `DPDDP` (wraps before `make_private`); non-DP uses standard PyTorch `DDP` with `DistributedSampler`.
+5. **Training**: Step-based loop with `BatchMemoryManager` (DP) or manual gradient accumulation (non-DP). Warmup + cosine decay LR schedule.
+6. **Eval**: Token-level accuracy on output tokens. Runs on rank 0 only with a `dist.barrier()` to avoid NCCL deadlock.
+
+### DP-Specific Details
+
+- **Per-sample gradients**: Opacus hooks compute per-sample gradients via `grad_sample_mode` (`"hooks"` default, `"ghost"` for memory efficiency).
+- **Gradient clipping**: Each sample's gradient is clipped to `max_grad_norm` (L2 norm).
+- **Noise addition**: Gaussian noise with std = `noise_multiplier * max_grad_norm` is added to the clipped gradient sum.
+- **Privacy accounting**: PRV accountant tracks cumulative (ε, δ) across steps. The noise multiplier is calibrated so that the total privacy cost over `max_steps` equals `target_epsilon`.
+- **BatchMemoryManager**: Decouples logical batch size (for privacy accounting) from physical batch size (for GPU memory). The optimizer accumulates clipped gradients across physical mini-batches and adds noise once per logical batch.
+- **Poisson sampling**: Opacus replaces the dataloader's sampler with `UniformWithReplacementSampler` (each example is included independently with probability `batch_size / dataset_size`).
+
+## Key Constraints
+
+- `lora_dropout` must be 0 (Opacus requires deterministic forward passes)
+- `attn_implementation="eager"` is used for DP (Opacus per-sample gradient hooks)
+- DP multi-GPU uses `DPDDP`, not PyTorch `DDP`, and does NOT use `DistributedSampler`
+- `batch_size` is the logical batch size; `max_physical_batch_size` controls GPU memory
+- Training is step-based (`max_steps`), not epoch-based
+- Default scheduler: warmup + cosine decay
+- Code style: `black` with default settings
+
+## Generation
+
+After training, generate text from a checkpoint:
+
+```bash
+python generate.py \
+    --model google/gemma-3-1b-pt \
+    --adapter_path output/dp_eps10/checkpoint-step15000 \
+    --input_file data/yelp_full_test.jsonl \
+    --output_file predictions.jsonl \
+    --temperature 0
+```
+
+Setting `--temperature 0` uses greedy decoding.
+
+## Output Structure
+
+```
+output/dp_eps10/
+├── log_rank0.txt                    # Training log (rank 0)
+├── checkpoint-step1000/             # LoRA adapter weights + training state
+│   ├── adapter_model.safetensors
+│   ├── adapter_config.json
+│   └── training_state.pt
+└── checkpoint-step15000/
+```
