@@ -1,2 +1,26 @@
 output/*
 data/*
+path_pipeline/preprocessed/*
+path_pipeline/generated/*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.eggs/
+.eggs/
+
+# Environments
+.venv/
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -151,3 +151,92 @@ output/dp_eps10/
 │   └── training_state.pt
 └── checkpoint-step15000/
 ```
+
+
+# Running PATH instructions
+
+## Stage 1: Preprocess MIMIC Data
+
+Run from the `path/` directory:
+
+```bash
+python path_pipeline/stage1_preprocess/preprocess.py \
+    --data_dir data/MIMIC \
+    --output_dir path_pipeline/preprocessed \
+    --csv_pattern "expanded_vitalsigns_1.csv" \
+    --min_rows 4 --max_rows 50 \
+    --schema_only_fraction 0.1 \
+    --test_fraction 0.1 \
+    --seed 42
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `--data_dir` | (required) | Directory containing MIMIC CSV files |
+| `--output_dir` | `path_pipeline/preprocessed` | Output directory for JSONL files |
+| `--csv_pattern` | `expanded_vitalsigns_*.csv` | Glob pattern for CSV files to load |
+| `--min_rows` | 4 | Min trajectory length per subject |
+| `--max_rows` | 50 | Max trajectory length per subject |
+| `--schema_only_fraction` | 0.1 | Fraction of examples with k=0 (schema-only prompts) |
+| `--test_fraction` | 0.1 | Fraction of subjects held out for test set |
+| `--seed` | 42 | Random seed for train/test split |
+
+Outputs `mimic_train.jsonl`, `mimic_test.jsonl`, and stats files to `--output_dir`.
+
+## Stage 2: DP Fine-tuning
+
+Run from the `path/` directory:
+
+```bash
+bash path_pipeline/stage2_finetune/run_finetune.sh
+```
+
+This uses the config at `path_pipeline/stage2_finetune/config_mimic_dp.json`. Override any setting via CLI:
+
+```bash
+bash path_pipeline/stage2_finetune/run_finetune.sh --target_epsilon 2.0
+bash path_pipeline/stage2_finetune/run_finetune.sh --max_steps 2000 --lr 1e-4
+```
+
+Single GPU:
+
+```bash
+GPU=0 bash path_pipeline/stage2_finetune/run_finetune.sh
+```
+
+Or run directly without the wrapper:
+
+```bash
+python run.py --config path_pipeline/stage2_finetune/config_mimic_dp.json
+```
+
+Checkpoints are saved to `output/mimic_dp_eps10/`.
+
+## Stage 3: Generate Synthetic Tables
+
+Run from the `path/` directory:
+
+```bash
+python path_pipeline/stage3_generate/generate_tables.py \
+    --model google/gemma-3-1b-it \
+    --adapter_path output/mimic_dp_eps10/checkpoint-step974 \
+    --n_tables 100 \
+    --max_rows_per_table 10 \
+    --output_file path_pipeline/preprocessed/synthetic_tables.jsonl \
+    --temperature 0.7
+```
+
+## Arguments
+
+| Argument | Default | Description |
+|---|---|---|
+| `--model` | (required) | Base HuggingFace model ID |
+| `--adapter_path` | (required) | Path to LoRA adapter checkpoint |
+| `--n_tables` | 100 | Number of tables to generate |
+| `--max_rows_per_table` | 50 | Max rows per table |
+| `--min_rows_per_table` | 4 | Min rows for a valid table |
+| `--output_file` | (required) | Output JSONL file path |
+| `--temperature` | 0.7 | Sampling temperature |
+| `--top_p` | 0.9 | Nucleus sampling |
+| `--max_new_tokens` | 256 | Max tokens per row |
+| `--strict_validation` | off | Flag to reject out-of-range clinical values |
