@@ -15,4 +15,4 @@ CONFIG="${SCRIPT_DIR}/config_mimic_dp.json"
 echo "Launching MIMIC DP fine-tuning with config: ${CONFIG}"
 echo "Extra args: $@"
 
-bash scripts/launch.sh "${CONFIG}" "$@"
+bash dp_ft/scripts/launch.sh "${CONFIG}" "$@"

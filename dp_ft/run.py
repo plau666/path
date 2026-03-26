@@ -6,11 +6,15 @@ import json
 import math
 import os
 import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path so dp_ft can be imported as a package
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import torch
 
-from path.data import build_dataloader
-from path.distributed import (
+from dp_ft.data import build_dataloader
+from dp_ft.distributed import (
     cleanup_ddp,
     get_world_size,
     is_main_process,
@@ -18,10 +22,10 @@ from path.distributed import (
     wrap_model_ddp,
     wrap_model_dp_ddp,
 )
-from path.model import build_model, load_tokenizer
-from path.privacy import setup_privacy_engine
-from path.trainer import train
-from path.utils import load_checkpoint, set_seed, setup_logging
+from dp_ft.model import build_model, load_tokenizer
+from dp_ft.privacy import setup_privacy_engine
+from dp_ft.trainer import train
+from dp_ft.utils import load_checkpoint, set_seed, setup_logging
 
 
 def parse_args():
@@ -269,7 +273,7 @@ def main():
 
     # Final checkpoint
     if is_main_process():
-        from path.utils import save_checkpoint
+        from dp_ft.utils import save_checkpoint
 
         save_checkpoint(model, optimizer, privacy_engine, args.max_steps, args.output_dir, args)
         logger.info("Final checkpoint saved.")

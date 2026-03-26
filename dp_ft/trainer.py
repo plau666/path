@@ -5,9 +5,9 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
-from path.distributed import is_main_process, get_world_size
-from path.privacy import wrap_with_batch_memory_manager
-from path.utils import save_checkpoint
+from dp_ft.distributed import is_main_process, get_world_size
+from dp_ft.privacy import wrap_with_batch_memory_manager
+from dp_ft.utils import save_checkpoint
 
 logger = logging.getLogger("path")
 

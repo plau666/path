@@ -38,7 +38,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Gemma IT template (matches path/data.py)
+# Gemma IT template (matches dp_ft/data.py)
 GEMMA_INPUT_TEMPLATE = "<start_of_turn>user\n{input}<end_of_turn>\n<start_of_turn>model\n"
 
 

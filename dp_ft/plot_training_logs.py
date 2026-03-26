@@ -2,7 +2,7 @@
 """Parse training log and plot metrics using scienceplots.
 
 Usage:
-    python plot_training_logs.py --log output/mimic_dp_eps10/log_rank0.txt
+    python dp_ft/plot_training_logs.py --log output/mimic_dp_eps10/log_rank0.txt
 """
 
 import argparse

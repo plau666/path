@@ -19,25 +19,25 @@ All settings (model, data paths, hyperparameters, privacy budget) live in a JSON
 
 ```bash
 # DP fine-tuning (epsilon=10)
-bash scripts/launch.sh configs/gemma3_1b_lora_dp.json
+bash dp_ft/scripts/launch.sh configs/gemma3_1b_lora_dp.json
 
 # Non-DP baseline
-bash scripts/launch.sh configs/gemma3_1b_lora_nodp.json
+bash dp_ft/scripts/launch.sh configs/gemma3_1b_lora_nodp.json
 
 # Override any config value via CLI
-bash scripts/launch.sh configs/gemma3_1b_lora_dp.json --target_epsilon 1
-bash scripts/launch.sh configs/gemma3_1b_lora_dp.json --noise_multiplier 1e-6
-bash scripts/launch.sh configs/gemma3_1b_lora_dp.json --max_steps 5000 --lr 1e-4
+bash dp_ft/scripts/launch.sh configs/gemma3_1b_lora_dp.json --target_epsilon 1
+bash dp_ft/scripts/launch.sh configs/gemma3_1b_lora_dp.json --noise_multiplier 1e-6
+bash dp_ft/scripts/launch.sh configs/gemma3_1b_lora_dp.json --max_steps 5000 --lr 1e-4
 ```
 
 Single-GPU (no torchrun):
 ```bash
-python run.py --config configs/gemma3_1b_lora_dp.json
+python dp_ft/run.py --config configs/gemma3_1b_lora_dp.json
 ```
 
 Control GPU count:
 ```bash
-NGPUS=4 bash scripts/launch.sh configs/gemma3_1b_lora_dp.json
+NGPUS=4 bash dp_ft/scripts/launch.sh configs/gemma3_1b_lora_dp.json
 ```
 
 ## Config Files
@@ -83,18 +83,19 @@ Loss is computed only on output tokens (input tokens are masked with `-100`).
 ## Architecture
 
 ```
-run.py                  # Entry point: config loading, model/data/optimizer setup, training dispatch
-generate.py             # Inference: load a trained LoRA adapter and generate text
-path/
+dp_ft/
+├── run.py              # Entry point: config loading, model/data/optimizer setup, training dispatch
+├── generate.py         # Inference: load a trained LoRA adapter and generate text
+├── plot_training_logs.py  # Parse training logs and plot metrics
 ├── model.py            # Model loading (HuggingFace), LoRA (PEFT), Opacus validation
 ├── data.py             # JSONL dataset, Gemma IT template, tokenization with output-only loss masking
 ├── privacy.py          # Opacus PrivacyEngine setup, BatchMemoryManager, epsilon tracking
 ├── trainer.py          # Step-based training loop, eval, DP gradient diagnostics
 ├── distributed.py      # DPDDP (Opacus) for DP, standard DDP for non-DP
-└── utils.py            # Seeding, logging, checkpoint save/load
+├── utils.py            # Seeding, logging, checkpoint save/load
+└── scripts/
+    └── launch.sh       # Single launch script for all runs
 configs/                # JSON config files
-scripts/
-└── launch.sh           # Single launch script for all runs
 ```
 
 ### Training Pipeline
@@ -130,7 +131,7 @@ scripts/
 After training, generate text from a checkpoint:
 
 ```bash
-python generate.py \
+python dp_ft/generate.py \
     --model google/gemma-3-1b-pt \
     --adapter_path output/dp_eps10/checkpoint-step15000 \
     --input_file data/yelp_full_test.jsonl \
@@ -157,7 +158,7 @@ output/dp_eps10/
 
 ## Stage 1: Preprocess MIMIC Data
 
-Run from the `path/` directory:
+Run from the project root:
 
 ```bash
 python path_pipeline/stage1_preprocess/preprocess.py \
@@ -185,7 +186,7 @@ Outputs `mimic_train.jsonl`, `mimic_test.jsonl`, and stats files to `--output_di
 
 ## Stage 2: DP Fine-tuning
 
-Run from the `path/` directory:
+Run from the project root:
 
 ```bash
 bash path_pipeline/stage2_finetune/run_finetune.sh
@@ -207,14 +208,14 @@ GPU=0 bash path_pipeline/stage2_finetune/run_finetune.sh
 Or run directly without the wrapper:
 
 ```bash
-python run.py --config path_pipeline/stage2_finetune/config_mimic_dp.json
+python dp_ft/run.py --config path_pipeline/stage2_finetune/config_mimic_dp.json
 ```
 
 Checkpoints are saved to `output/mimic_dp_eps10/`.
 
 ## Stage 3: Generate Synthetic Tables
 
-Run from the `path/` directory:
+Run from the project root:
 
 ```bash
 python path_pipeline/stage3_generate/generate_tables.py \
