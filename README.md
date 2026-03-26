@@ -240,3 +240,24 @@ python path_pipeline/stage3_generate/generate_tables.py \
 | `--top_p` | 0.9 | Nucleus sampling |
 | `--max_new_tokens` | 256 | Max tokens per row |
 | `--strict_validation` | off | Flag to reject out-of-range clinical values |
+
+
+# Metrics
+
+### Basic stats only (fast):
+  python -m path_pipeline.metrics.compute_all \
+      --data_dir data/MIMIC \
+      --synth_file path_pipeline/generated/synthetic_tables.jsonl \
+      --dataset mimic --output metrics_results.json --markdown
+
+### With TDCR (slower):
+UNTESTED
+python -m path_pipeline.metrics.compute_all \
+    --data_dir data/MIMIC \
+    --synth_file path_pipeline/generated/synthetic_tables.jsonl \
+      --dataset mimic --output metrics_results.json \
+      --run_tdcr --tdcr_n_subjects 200
+
+### With classifier:
+UNTESTED
+... --run_classifier --embedding_method handcrafted  # or gemma
