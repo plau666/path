@@ -155,6 +155,8 @@ def generate_table(model, tokenizer, device, args) -> list:
 def main():
     args = parse_args()
 
+    from path_pipeline.timing import Timer
+
     model, tokenizer, device = load_model(args.model, args.adapter_path)
 
     Path(args.output_file).parent.mkdir(parents=True, exist_ok=True)
@@ -164,25 +166,29 @@ def main():
     # Over-generate: try up to 2x to hit n_tables valid tables
     max_attempts = args.n_tables * 2
 
-    with open(args.output_file, "w") as f:
-        while valid_tables < args.n_tables and total_attempts < max_attempts:
-            total_attempts += 1
-            rows = generate_table(model, tokenizer, device, args)
+    timing_log = str(Path(args.output_file).parent / "timing.log")
+    timer_notes = f"{args.n_tables} tables, temp={args.temperature}, adapter={args.adapter_path}"
 
-            if len(rows) >= args.min_rows_per_table:
-                table_record = {"table_id": valid_tables, "n_rows": len(rows), "rows": rows}
-                f.write(json.dumps(table_record) + "\n")
-                valid_tables += 1
+    with Timer("stage3_generate", log_file=timing_log, notes=timer_notes):
+        with open(args.output_file, "w") as f:
+            while valid_tables < args.n_tables and total_attempts < max_attempts:
+                total_attempts += 1
+                rows = generate_table(model, tokenizer, device, args)
 
-                if valid_tables % 10 == 0:
-                    logger.info(
-                        f"Generated {valid_tables}/{args.n_tables} tables "
-                        f"({total_attempts} attempts)"
+                if len(rows) >= args.min_rows_per_table:
+                    table_record = {"table_id": valid_tables, "n_rows": len(rows), "rows": rows}
+                    f.write(json.dumps(table_record) + "\n")
+                    valid_tables += 1
+
+                    if valid_tables % 10 == 0:
+                        logger.info(
+                            f"Generated {valid_tables}/{args.n_tables} tables "
+                            f"({total_attempts} attempts)"
+                        )
+                else:
+                    logger.debug(
+                        f"Attempt {total_attempts}: table too short ({len(rows)} rows), discarding"
                     )
-            else:
-                logger.debug(
-                    f"Attempt {total_attempts}: table too short ({len(rows)} rows), discarding"
-                )
 
     logger.info(
         f"Done! Generated {valid_tables} valid tables in {total_attempts} attempts. "

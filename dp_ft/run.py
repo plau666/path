@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import torch
 
+from path_pipeline.timing import Timer
+
 from dp_ft.data import build_dataloader
 from dp_ft.distributed import (
     cleanup_ddp,
@@ -261,15 +263,20 @@ def main():
             logger.info(f"Resumed from {args.resume_from}, starting at step {args.start_step}")
 
     # Train
-    train(
-        model=model,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        dataloader=dataloader,
-        privacy_engine=privacy_engine,
-        args=args,
-        eval_dataloader=eval_dataloader,
-    )
+    dp_str = f"eps{args.target_epsilon}" if use_dp else "nodp"
+    timer_notes = f"{args.model}, {dp_str}, {args.max_steps} steps, bs={args.batch_size}"
+    timing_log = os.path.join(args.output_dir, "timing.log")
+
+    with Timer("stage2_finetune", log_file=timing_log, notes=timer_notes):
+        train(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            dataloader=dataloader,
+            privacy_engine=privacy_engine,
+            args=args,
+            eval_dataloader=eval_dataloader,
+        )
 
     # Final checkpoint
     if is_main_process():

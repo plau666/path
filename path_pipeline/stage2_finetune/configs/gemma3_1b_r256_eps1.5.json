@@ -1,0 +1,32 @@
+{
+    "lora_target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+    ],
+    "torch_dtype": "bfloat16",
+    "max_length": 256,
+    "train_data": "/home/peihanliu/PATH/data/MIMIC/preprocessed/mimic_train.jsonl",
+    "eval_data": "/home/peihanliu/PATH/data/MIMIC/preprocessed/mimic_test.jsonl",
+    "max_grad_norm": 0.01,
+    "grad_sample_mode": "hooks",
+    "max_steps": 974,
+    "batch_size": 64,
+    "max_physical_batch_size": 4,
+    "lr": 0.0005,
+    "warmup_steps": 50,
+    "eval_every": 100,
+    "save_steps": 500,
+    "log_every": 10,
+    "seed": 42,
+    "model": "google/gemma-3-1b-it",
+    "lora_r": 256,
+    "lora_alpha": 512,
+    "output_dir": "output/MIMIC_gemma3_1b_r256_eps1.5",
+    "no_dp": false,
+    "target_epsilon": 1.5
+}

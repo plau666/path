@@ -199,6 +199,8 @@ def load_synthetic_tables(synthetic_file: str):
 def main():
     args = parse_args()
 
+    from path_pipeline.timing import Timer
+
     logger.info("=" * 60)
     logger.info("Stage 4: Private Selection")
     logger.info("=" * 60)
@@ -226,42 +228,49 @@ def main():
     delta = args.delta if args.delta is not None else 1.0 / (n_real ** 2)
     logger.info(f"Privacy: epsilon_select={args.epsilon_select}, delta={delta:.2e}")
 
-    # Step 3: Embed tables
-    logger.info(f"Loading embedding model: {args.embedding_model}")
-    embed_model = load_embedding_model(
-        model_name=args.embedding_model, device=args.device
+    timing_log = str(Path(args.output_file).parent / "timing.log")
+    timer_notes = (
+        f"{n_syn} candidates -> {n_select} selected, "
+        f"k={args.k}, eps={args.epsilon_select}"
     )
 
-    logger.info("Embedding real tables...")
-    real_embeddings = embed_texts(
-        embed_model, real_texts, batch_size=args.embedding_batch_size
-    )
-    logger.info(f"Real embeddings: {real_embeddings.shape}")
+    with Timer("stage4_selection", log_file=timing_log, notes=timer_notes):
+        # Step 3: Embed tables
+        logger.info(f"Loading embedding model: {args.embedding_model}")
+        embed_model = load_embedding_model(
+            model_name=args.embedding_model, device=args.device
+        )
 
-    logger.info("Embedding synthetic tables...")
-    synthetic_embeddings = embed_texts(
-        embed_model, synthetic_texts, batch_size=args.embedding_batch_size
-    )
-    logger.info(f"Synthetic embeddings: {synthetic_embeddings.shape}")
+        logger.info("Embedding real tables...")
+        real_embeddings = embed_texts(
+            embed_model, real_texts, batch_size=args.embedding_batch_size
+        )
+        logger.info(f"Real embeddings: {real_embeddings.shape}")
 
-    # Free GPU memory from embedding model before selection
-    del embed_model
+        logger.info("Embedding synthetic tables...")
+        synthetic_embeddings = embed_texts(
+            embed_model, synthetic_texts, batch_size=args.embedding_batch_size
+        )
+        logger.info(f"Synthetic embeddings: {synthetic_embeddings.shape}")
 
-    # Step 4: Private selection
-    logger.info(
-        f"Running private selection (k={args.k}, "
-        f"epsilon={args.epsilon_select}, sigma={args.sigma})"
-    )
-    selected_indices = private_selection(
-        real_embeddings=real_embeddings,
-        synthetic_embeddings=synthetic_embeddings,
-        n_select=n_select,
-        k=args.k,
-        epsilon=args.epsilon_select,
-        sigma=args.sigma,
-        delta=delta,
-        seed=args.seed,
-    )
+        # Free GPU memory from embedding model before selection
+        del embed_model
+
+        # Step 4: Private selection
+        logger.info(
+            f"Running private selection (k={args.k}, "
+            f"epsilon={args.epsilon_select}, sigma={args.sigma})"
+        )
+        selected_indices = private_selection(
+            real_embeddings=real_embeddings,
+            synthetic_embeddings=synthetic_embeddings,
+            n_select=n_select,
+            k=args.k,
+            epsilon=args.epsilon_select,
+            sigma=args.sigma,
+            delta=delta,
+            seed=args.seed,
+        )
 
     # Step 5: Write selected tables
     output_path = Path(args.output_file)

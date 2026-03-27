@@ -115,6 +115,8 @@ def results_to_markdown(results: dict) -> str:
 def main():
     args = parse_args()
 
+    from path_pipeline.timing import Timer
+
     from .basic_stats import (
         marginal_distances,
         missingness_comparison,
@@ -149,58 +151,67 @@ def main():
 
     results = {}
 
-    # Basic stats
-    logger.info("Computing marginal distances...")
-    results["marginal_distances"] = marginal_distances(
-        real_for_comparison, synth, config,
-        include_nan_as_bin=args.include_nan_as_bin,
-    )
-
-    logger.info("Computing trajectory length distance...")
-    results["trajectory_lengths"] = trajectory_length_distance(
-        real_for_comparison, synth,
-    )
-
-    logger.info("Computing missingness comparison...")
-    results["missingness"] = missingness_comparison(
-        real_for_comparison, synth, config,
-    )
-
-    logger.info("Computing state transition divergence...")
-    results["transition_divergence"] = state_transition_divergence(
-        real_for_comparison, synth, config,
-        n_bins=args.transition_bins,
-    )
-
-    # TDCR (optional, slower)
+    timing_log = str(Path(args.output).parent / "timing.log")
+    synth_count = len(synth)
+    timer_notes = f"{synth_count} synth tables, dataset={args.dataset}"
     if args.run_tdcr:
-        from .tdcr import tdcr_jsd
-
-        # Use smaller subsample for TDCR
-        tdcr_train, tdcr_test = load_real_tables(
-            args.data_dir, config,
-            seed=args.seed,
-            test_fraction=args.test_fraction,
-            n_subsample=args.tdcr_n_subjects,
-        )
-        tdcr_train = tables_to_numeric(tdcr_train, config.numeric_cols)
-        tdcr_test = tables_to_numeric(tdcr_test, config.numeric_cols)
-
-        logger.info("Computing TDCR...")
-        results["tdcr"] = tdcr_jsd(
-            synth, tdcr_train, tdcr_test, config,
-            n_bins=args.tdcr_n_bins,
-        )
-
-    # Classifier (optional)
+        timer_notes += ", +tdcr"
     if args.run_classifier:
-        from .classifier import classifier_discriminator
+        timer_notes += ", +classifier"
 
-        logger.info("Computing classifier discriminator...")
-        results["classifier"] = classifier_discriminator(
+    with Timer("metrics", log_file=timing_log, notes=timer_notes):
+        # Basic stats
+        logger.info("Computing marginal distances...")
+        results["marginal_distances"] = marginal_distances(
             real_for_comparison, synth, config,
-            embedding_method=args.embedding_method,
+            include_nan_as_bin=args.include_nan_as_bin,
         )
+
+        logger.info("Computing trajectory length distance...")
+        results["trajectory_lengths"] = trajectory_length_distance(
+            real_for_comparison, synth,
+        )
+
+        logger.info("Computing missingness comparison...")
+        results["missingness"] = missingness_comparison(
+            real_for_comparison, synth, config,
+        )
+
+        logger.info("Computing state transition divergence...")
+        results["transition_divergence"] = state_transition_divergence(
+            real_for_comparison, synth, config,
+            n_bins=args.transition_bins,
+        )
+
+        # TDCR (optional, slower)
+        if args.run_tdcr:
+            from .tdcr import tdcr_jsd
+
+            # Use smaller subsample for TDCR
+            tdcr_train, tdcr_test = load_real_tables(
+                args.data_dir, config,
+                seed=args.seed,
+                test_fraction=args.test_fraction,
+                n_subsample=args.tdcr_n_subjects,
+            )
+            tdcr_train = tables_to_numeric(tdcr_train, config.numeric_cols)
+            tdcr_test = tables_to_numeric(tdcr_test, config.numeric_cols)
+
+            logger.info("Computing TDCR...")
+            results["tdcr"] = tdcr_jsd(
+                synth, tdcr_train, tdcr_test, config,
+                n_bins=args.tdcr_n_bins,
+            )
+
+        # Classifier (optional)
+        if args.run_classifier:
+            from .classifier import classifier_discriminator
+
+            logger.info("Computing classifier discriminator...")
+            results["classifier"] = classifier_discriminator(
+                real_for_comparison, synth, config,
+                embedding_method=args.embedding_method,
+            )
 
     # Save results
     output_path = Path(args.output)
