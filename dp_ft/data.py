@@ -7,8 +7,34 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 logger = logging.getLogger("path")
-GEMMA_INPUT_TEMPLATE = "<start_of_turn>user\n{input}<end_of_turn>\n<start_of_turn>model\n"
-GEMMA_OUTPUT_TEMPLATE = "{output}<end_of_turn>"
+TEMPLATES = {
+    "gemma_it": {
+        "input": "<start_of_turn>user\n{input}<end_of_turn>\n<start_of_turn>model\n",
+        "output": "{output}<end_of_turn>",
+    },
+    "llama_it": {
+        "input": "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+        "output": "{output}<|eot_id|>",
+    },
+    "qwen_it": {
+        "input": "<|im_start|>user\n{input}<|im_end|>\n<|im_start|>assistant\n",
+        "output": "{output}<|im_end|>",
+    },
+}
+
+# Keep backwards-compatible aliases
+GEMMA_INPUT_TEMPLATE = TEMPLATES["gemma_it"]["input"]
+GEMMA_OUTPUT_TEMPLATE = TEMPLATES["gemma_it"]["output"]
+
+
+def get_template(model_name: str) -> str:
+    """Select the appropriate template name based on the model ID."""
+    model_lower = model_name.lower()
+    if "llama" in model_lower:
+        return "llama_it"
+    if "qwen" in model_lower:
+        return "qwen_it"
+    return "gemma_it"
 
 class Seq2SeqDataset(Dataset):
     """Dataset for seq2seq training from JSONL files on decoder-only models."""
@@ -44,13 +70,11 @@ class Seq2SeqDataset(Dataset):
 
     def __getitem__(self, idx):
         example = self.examples[idx]
-        # No Template
-        input_text = str(example[self.input_field]) 
+        input_text = str(example[self.input_field])
         output_text = str(example[self.output_field])
-        # Gemma IT Template
-        if self.template == "gemma_it":
-            input_text = GEMMA_INPUT_TEMPLATE.format(input=input_text)
-            output_text = GEMMA_OUTPUT_TEMPLATE.format(output=output_text)
+        if self.template in TEMPLATES:
+            input_text = TEMPLATES[self.template]["input"].format(input=input_text)
+            output_text = TEMPLATES[self.template]["output"].format(output=output_text)
             
         return self._tokenize(input_text, output_text)
 
@@ -135,6 +159,7 @@ def build_dataloader(
     shuffle: bool = True,
     num_workers: int = 0,
     max_samples: int = 0,
+    template: str = "gemma_it",
 ) -> DataLoader:
     """Build DataLoader for seq2seq training.
 
@@ -148,7 +173,7 @@ def build_dataloader(
         max_length=max_length,
         input_field=input_field,
         output_field=output_field,
-        template="gemma_it",
+        template=template,
     )
     if max_samples > 0 and len(dataset) > max_samples:
         dataset = torch.utils.data.Subset(dataset, range(max_samples))

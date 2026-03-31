@@ -66,9 +66,9 @@ def table_distance(
         if len(series_a) == 0 or len(series_b) == 0:
             continue
 
-        raw_dist, _, _, path = dtw_func(series_a, series_b, _scalar_dist)
-        # Normalize by warping path length
-        path_length = len(path[0])
+        result = dtw_func(series_a, series_b, dist_method=_scalar_dist)
+        raw_dist = result.distance
+        path_length = result.index1.shape[0]
         normalized_dist = raw_dist / path_length if path_length > 0 else raw_dist
 
         total += normalized_dist

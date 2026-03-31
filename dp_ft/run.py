@@ -15,7 +15,7 @@ import torch
 
 from path_pipeline.timing import Timer
 
-from dp_ft.data import build_dataloader
+from dp_ft.data import build_dataloader, get_template
 from dp_ft.distributed import (
     cleanup_ddp,
     get_world_size,
@@ -155,6 +155,11 @@ def main():
     # Tokenizer
     tokenizer = load_tokenizer(args.model)
 
+    # Auto-detect chat template from model name
+    template = get_template(args.model)
+    if is_main_process():
+        logger.info(f"Using template: {template}")
+
     # DataLoader — logical batch size. For DP, Opacus takes over sampling.
     # For non-DP DDP, we add a DistributedSampler below.
     dataloader = build_dataloader(
@@ -165,6 +170,7 @@ def main():
         input_field=args.input_field,
         output_field=args.output_field,
         shuffle=True,
+        template=template,
     )
 
     # Eval DataLoader (no DP wrapping needed — just forward passes)
@@ -179,6 +185,7 @@ def main():
             output_field=args.output_field,
             shuffle=False,
             max_samples=2048,
+            template=template,
         )
         if is_main_process():
             logger.info(f"Eval dataset: {len(eval_dataloader.dataset)} examples")

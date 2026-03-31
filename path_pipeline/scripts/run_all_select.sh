@@ -10,24 +10,33 @@
 #   NGPUS=4 bash path_pipeline/scripts/run_all_select.sh
 
 EXPERIMENTS=(
+    # Format: "experiment_name:epsilon_select"
     # Gemma 3 1B
-    "gemma3_1b_r32_eps1.5"
-    "gemma3_1b_r32_nodp"
-    "gemma3_1b_r64_eps1.5"
-    "gemma3_1b_r64_nodp"
-    "gemma3_1b_r128_eps1.5"
-    "gemma3_1b_r128_nodp"
-    "gemma3_1b_r256_eps1.5"
-    "gemma3_1b_r256_nodp"
+    # "gemma3_1b_r32_eps1.5:0.5"
+    # "gemma3_1b_r32_nodp:0.5"
+    # "gemma3_1b_r64_eps1.5:0.5"
+    # "gemma3_1b_r64_nodp:0.5"
+    # "gemma3_1b_r128_eps1.5:0.5"
+    # "gemma3_1b_r128_nodp:0.5"
+    # "gemma3_1b_r256_eps1.5:0.5"
+    # "gemma3_1b_r256_nodp:0.5"
     # Llama 3.2 1B
-    "llama32_1b_r32_eps1.5"
-    "llama32_1b_r32_nodp"
-    "llama32_1b_r64_eps1.5"
-    "llama32_1b_r64_nodp"
-    "llama32_1b_r128_eps1.5"
-    "llama32_1b_r128_nodp"
-    "llama32_1b_r256_eps1.5"
-    "llama32_1b_r256_nodp"
+    # "llama32_1b_r32_eps1.5:0.5"
+    # "llama32_1b_r32_nodp:0.5"
+    # "llama32_1b_r64_eps1.5:0.5"
+    # "llama32_1b_r64_nodp:0.5"
+    # "llama32_1b_r128_eps1.5:0.5"
+    # "llama32_1b_r128_nodp:0.5"
+    # "llama32_1b_r256_eps1.5:0.5"
+    # "llama32_1b_r256_nodp:0.5"
+    # Gemma 3 1B epsilon sweep (total privacy = finetune_eps + select_eps = 2.0)
+    # "gemma3_1b_r128_eps1.0:1.0"
+    # "gemma3_1b_r128_eps0.5:1.5"
+    # Qwen 3.5 0.8B (DP experiments only)
+    "qwen35_08b_r32_eps1.5:0.5"
+    "qwen35_08b_r64_eps1.5:0.5"
+    "qwen35_08b_r128_eps1.5:0.5"
+    "qwen35_08b_r256_eps1.5:0.5"
 )
 
 NGPUS=${NGPUS:-$(nvidia-smi -L 2>/dev/null | wc -l)}
@@ -67,10 +76,12 @@ wait_for_gpu() {
 
 for i in "${!EXPERIMENTS[@]}"; do
     EXP_NUM=$((i + 1))
-    EXP="${EXPERIMENTS[$i]}"
+    ENTRY="${EXPERIMENTS[$i]}"
+    EXP="${ENTRY%%:*}"
+    EPS_SELECT="${ENTRY##*:}"
 
     SYNTH_FILE="output/MIMIC_${EXP}/synthetic_tables.jsonl"
-    OUTPUT_FILE="output/MIMIC_${EXP}/selected_eps0.5_synthetic_tables.jsonl"
+    OUTPUT_FILE="output/MIMIC_${EXP}/selected_eps${EPS_SELECT}_synthetic_tables.jsonl"
 
     if [ ! -f "$SYNTH_FILE" ]; then
         echo "[${EXP_NUM}/${TOTAL}] SYNTH FILE NOT FOUND: ${SYNTH_FILE}, skipping"
@@ -91,8 +102,8 @@ for i in "${!EXPERIMENTS[@]}"; do
         --real_data_dir data/MIMIC \
         --synthetic_file "${SYNTH_FILE}" \
         --output_file "${OUTPUT_FILE}" \
-        --n_select 500 \
-        --epsilon_select 0.5 \
+        --n_select 200 \
+        --epsilon_select "${EPS_SELECT}" \
         > "output/MIMIC_${EXP}/select.log" 2>&1 &
 
     GPU_PIDS[$GPU]=$!

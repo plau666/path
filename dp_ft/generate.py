@@ -9,6 +9,8 @@ import torch
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from dp_ft.data import TEMPLATES, get_template
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Generate text from DP fine-tuned LoRA model")
@@ -62,7 +64,8 @@ def main():
     try:
         for i in range(0, len(inputs), args.batch_size):
             batch_inputs = inputs[i : i + args.batch_size]
-            prompts = [f"Input: {inp}\nOutput: " for inp in batch_inputs]
+            template = TEMPLATES[get_template(args.model)]
+            prompts = [template["input"].format(input=inp) for inp in batch_inputs]
 
             encoded = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True).to(device)
 

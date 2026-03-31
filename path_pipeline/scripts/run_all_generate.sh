@@ -14,23 +14,36 @@
 
 EXPERIMENTS=(
     # Gemma 3 1B
-    "gemma3_1b_r32_eps1.5:google/gemma-3-1b-it"
-    "gemma3_1b_r32_nodp:google/gemma-3-1b-it"
-    "gemma3_1b_r64_eps1.5:google/gemma-3-1b-it"
-    "gemma3_1b_r64_nodp:google/gemma-3-1b-it"
-    "gemma3_1b_r128_eps1.5:google/gemma-3-1b-it"
-    "gemma3_1b_r128_nodp:google/gemma-3-1b-it"
-    "gemma3_1b_r256_eps1.5:google/gemma-3-1b-it"
-    "gemma3_1b_r256_nodp:google/gemma-3-1b-it"
+    # "gemma3_1b_r32_eps1.5:google/gemma-3-1b-it"
+    # "gemma3_1b_r32_nodp:google/gemma-3-1b-it"
+    # "gemma3_1b_r64_eps1.5:google/gemma-3-1b-it"
+    # "gemma3_1b_r64_nodp:google/gemma-3-1b-it"
+    # "gemma3_1b_r128_eps1.5:google/gemma-3-1b-it"
+    # "gemma3_1b_r128_nodp:google/gemma-3-1b-it"
+    # "gemma3_1b_r256_eps1.5:google/gemma-3-1b-it"
+    # "gemma3_1b_r256_nodp:google/gemma-3-1b-it"
     # Llama 3.2 1B
-    "llama32_1b_r32_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r32_nodp:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r64_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r64_nodp:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r128_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r128_nodp:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r256_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
-    "llama32_1b_r256_nodp:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r32_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r32_nodp:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r64_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r64_nodp:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r128_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r128_nodp:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r256_eps1.5:meta-llama/Llama-3.2-1B-Instruct"
+    # "llama32_1b_r256_nodp:meta-llama/Llama-3.2-1B-Instruct"
+    # Gemma 3 1B epsilon sweep
+    # "gemma3_1b_r128_eps2.0:google/gemma-3-1b-it"
+    # "gemma3_1b_r128_eps1.0:google/gemma-3-1b-it"
+    # "gemma3_1b_r128_eps0.5:google/gemma-3-1b-it"
+    # Qwen 3.5 0.8B
+    "qwen35_08b_r32_eps1.5:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r32_nodp:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r64_eps1.5:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r64_nodp:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r128_eps1.5:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r128_nodp:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r256_eps1.5:Qwen/Qwen3.5-0.8B"
+    "qwen35_08b_r256_nodp:Qwen/Qwen3.5-0.8B"
 )
 
 CHECKPOINT_STEP=974
@@ -102,10 +115,11 @@ for i in "${!EXPERIMENTS[@]}"; do
     CUDA_VISIBLE_DEVICES=${GPU} python path_pipeline/stage3_generate/generate_tables.py \
         --model "${MODEL}" \
         --adapter_path "${ADAPTER_PATH}" \
-        --n_tables 5000 \
+        --n_tables 1000 \
         --max_rows_per_table 10 \
         --output_file "${OUTPUT_FILE}" \
         --temperature 0.7 \
+        --batch_size 32 \
         > "output/MIMIC_${EXP}/generate.log" 2>&1 &
 
     GPU_PIDS[$GPU]=$!

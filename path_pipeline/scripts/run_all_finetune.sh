@@ -14,23 +14,36 @@ CONFIGS_DIR="path_pipeline/stage2_finetune/configs"
 
 EXPERIMENTS=(
     # Gemma 3 1B
-    "gemma3_1b_r32_eps1.5"
-    "gemma3_1b_r32_nodp"
-    "gemma3_1b_r64_eps1.5"
-    "gemma3_1b_r64_nodp"
-    "gemma3_1b_r128_eps1.5"
-    "gemma3_1b_r128_nodp"
-    "gemma3_1b_r256_eps1.5"
-    "gemma3_1b_r256_nodp"
+    # "gemma3_1b_r32_eps1.5"
+    # "gemma3_1b_r32_nodp"
+    # "gemma3_1b_r64_eps1.5"
+    # "gemma3_1b_r64_nodp"
+    # "gemma3_1b_r128_eps1.5"
+    # "gemma3_1b_r128_nodp"
+    # "gemma3_1b_r256_eps1.5"
+    # "gemma3_1b_r256_nodp"
     # Llama 3.2 1B
-    "llama32_1b_r32_eps1.5"
-    "llama32_1b_r32_nodp"
-    "llama32_1b_r64_eps1.5"
-    "llama32_1b_r64_nodp"
-    "llama32_1b_r128_eps1.5"
-    "llama32_1b_r128_nodp"
-    "llama32_1b_r256_eps1.5"
-    "llama32_1b_r256_nodp"
+    # "llama32_1b_r32_eps1.5"
+    # "llama32_1b_r32_nodp"
+    # "llama32_1b_r64_eps1.5"
+    # "llama32_1b_r64_nodp"
+    # "llama32_1b_r128_eps1.5"
+    # "llama32_1b_r128_nodp"
+    # "llama32_1b_r256_eps1.5"
+    # "llama32_1b_r256_nodp"
+    # Gemma 3 1B epsilon sweep
+    # "gemma3_1b_r128_eps2.0"
+    # "gemma3_1b_r128_eps1.0"
+    # "gemma3_1b_r128_eps0.5"
+    # Qwen 3.5 0.8B
+    "qwen35_08b_r32_eps1.5"
+    "qwen35_08b_r32_nodp"
+    "qwen35_08b_r64_eps1.5"
+    "qwen35_08b_r64_nodp"
+    "qwen35_08b_r128_eps1.5"
+    "qwen35_08b_r128_nodp"
+    "qwen35_08b_r256_eps1.5"
+    "qwen35_08b_r256_nodp"
 )
 
 START_FROM=${START_FROM:-1}
@@ -65,6 +78,13 @@ for i in "${!EXPERIMENTS[@]}"; do
     echo "========================================"
 
     bash dp_ft/scripts/launch.sh "${CONFIG}"
+
+    # Plot training logs
+    LOG_FILE="output/MIMIC_${EXP}/log_rank0.txt"
+    if [ -f "$LOG_FILE" ]; then
+        echo "  Plotting training logs..."
+        python dp_ft/plot_training_logs.py --log "${LOG_FILE}" || echo "  WARNING: plotting failed"
+    fi
 
     echo "[${EXP_NUM}/${TOTAL}] ${EXP} DONE at $(date '+%Y-%m-%d %H:%M:%S')"
 done

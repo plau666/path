@@ -35,7 +35,7 @@ def parse_structured_row(text: str, columns: List[str]) -> Optional[Dict[str, st
     parsed = {}
     # Split on ", column_name is " boundaries
     # Build a regex that splits on the column delimiters
-    parts = re.split(r",\s*(?=" + "|".join(re.escape(c) + r"\s+is\s" for c in columns) + ")", content)
+    parts = re.split(r",\s*(?=" + "|".join(re.escape(c) + r"\s+is(?:\s|,|$)" for c in columns) + ")", content)
 
     for part in parts:
         part = part.strip()

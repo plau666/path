@@ -96,7 +96,11 @@ def dp_nn_histogram(
     n_real = real_embeddings.shape[0]
     n_syn = synthetic_embeddings.shape[0]
 
-    if sigma is None:
+    # Check for non-private (public) selection
+    non_private = (epsilon is not None and str(epsilon).lower() in ("inf", "infty", "infinity")) or \
+                  (sigma is not None and sigma == 0)
+
+    if sigma is None and not non_private:
         if epsilon is None:
             raise ValueError("Either sigma or epsilon must be provided")
         # Gaussian mechanism: sigma = L2_sensitivity * sqrt(2 * ln(1.25/delta)) / epsilon
@@ -122,15 +126,19 @@ def dp_nn_histogram(
         f"non-zero bins: {(histogram > 0).sum()}/{n_syn}"
     )
 
-    # Add Gaussian noise
-    rng = np.random.default_rng(seed)
-    noise = rng.normal(loc=0.0, scale=sigma, size=n_syn)
-    noisy_histogram = histogram + noise
+    if non_private:
+        logger.info("Public selection: no noise added (epsilon=inf)")
+        noisy_histogram = histogram
+    else:
+        # Add Gaussian noise
+        rng = np.random.default_rng(seed)
+        noise = rng.normal(loc=0.0, scale=sigma, size=n_syn)
+        noisy_histogram = histogram + noise
 
-    logger.info(
-        f"Added Gaussian noise: sigma={sigma:.4f}, "
-        f"noise L2 norm={np.linalg.norm(noise):.2f}"
-    )
+        logger.info(
+            f"Added Gaussian noise: sigma={sigma:.4f}, "
+            f"noise L2 norm={np.linalg.norm(noise):.2f}"
+        )
 
     return noisy_histogram
 

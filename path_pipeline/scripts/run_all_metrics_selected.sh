@@ -9,23 +9,32 @@
 
 EXPERIMENTS=(
     # Gemma 3 1B
-    "gemma3_1b_r32_eps1.5"
-    "gemma3_1b_r32_nodp"
-    "gemma3_1b_r64_eps1.5"
-    "gemma3_1b_r64_nodp"
-    "gemma3_1b_r128_eps1.5"
-    "gemma3_1b_r128_nodp"
-    "gemma3_1b_r256_eps1.5"
-    "gemma3_1b_r256_nodp"
+    # "gemma3_1b_r32_eps1.5:0.5"
+    # "gemma3_1b_r32_nodp:0.5"
+    # "gemma3_1b_r64_eps1.5:0.5"
+    # "gemma3_1b_r64_nodp:0.5"
+    # "gemma3_1b_r128_eps1.5:0.5"
+    # "gemma3_1b_r128_nodp:0.5"
+    # "gemma3_1b_r256_eps1.5:0.5"
+    # "gemma3_1b_r256_nodp:0.5"
     # Llama 3.2 1B
-    "llama32_1b_r32_eps1.5"
-    "llama32_1b_r32_nodp"
-    "llama32_1b_r64_eps1.5"
-    "llama32_1b_r64_nodp"
-    "llama32_1b_r128_eps1.5"
-    "llama32_1b_r128_nodp"
-    "llama32_1b_r256_eps1.5"
-    "llama32_1b_r256_nodp"
+    # "llama32_1b_r32_eps1.5:0.5"
+    # "llama32_1b_r32_nodp:0.5"
+    # "llama32_1b_r64_eps1.5:0.5"
+    # "llama32_1b_r64_nodp:0.5"
+    # "llama32_1b_r128_eps1.5:0.5"
+    # "llama32_1b_r128_nodp:0.5"
+    # "llama32_1b_r256_eps1.5:0.5"
+    # "llama32_1b_r256_nodp:0.5"
+    # Format: "experiment_name:epsilon_select" (epsilon_select used in filename)
+    # Gemma 3 1B epsilon sweep (selection applied)
+    # "gemma3_1b_r128_eps1.0:1.0"
+    # "gemma3_1b_r128_eps0.5:1.5"
+    # Qwen 3.5 0.8B (DP experiments only)
+    "qwen35_08b_r32_eps1.5:0.5"
+    "qwen35_08b_r64_eps1.5:0.5"
+    "qwen35_08b_r128_eps1.5:0.5"
+    "qwen35_08b_r256_eps1.5:0.5"
 )
 
 START_FROM=${START_FROM:-1}
@@ -38,15 +47,17 @@ echo "========================================"
 
 for i in "${!EXPERIMENTS[@]}"; do
     EXP_NUM=$((i + 1))
-    EXP="${EXPERIMENTS[$i]}"
+    ENTRY="${EXPERIMENTS[$i]}"
+    EXP="${ENTRY%%:*}"
+    EPS_SELECT="${ENTRY##*:}"
 
     if [ "$EXP_NUM" -lt "$START_FROM" ]; then
         echo "[${EXP_NUM}/${TOTAL}] SKIP ${EXP}"
         continue
     fi
 
-    SYNTH_FILE="output/MIMIC_${EXP}/selected_eps0.5_synthetic_tables.jsonl"
-    OUTPUT_FILE="output/MIMIC_${EXP}/selected_eps0.5_synthetic_tables_metrics.json"
+    SYNTH_FILE="output/MIMIC_${EXP}/selected_eps${EPS_SELECT}_synthetic_tables.jsonl"
+    OUTPUT_FILE="output/MIMIC_${EXP}/selected_eps${EPS_SELECT}_synthetic_tables_metrics.json"
 
     if [ ! -f "$SYNTH_FILE" ]; then
         echo "[${EXP_NUM}/${TOTAL}] SELECTED FILE NOT FOUND: ${SYNTH_FILE}, skipping"
@@ -65,7 +76,8 @@ for i in "${!EXPERIMENTS[@]}"; do
         --data_dir data/MIMIC \
         --synth_file "${SYNTH_FILE}" \
         --dataset mimic \
-        --output "${OUTPUT_FILE}"
+        --output "${OUTPUT_FILE}" \
+        --run_tdcr --tdcr_n_subjects 200
 
     echo "[${EXP_NUM}/${TOTAL}] ${EXP} DONE at $(date '+%Y-%m-%d %H:%M:%S')"
 done

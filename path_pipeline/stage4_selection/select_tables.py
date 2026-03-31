@@ -106,9 +106,9 @@ def parse_args():
     )
     parser.add_argument(
         "--epsilon_select",
-        type=float,
-        default=1.0,
-        help="Privacy budget for the selection step",
+        type=str,
+        default="1.0",
+        help="Privacy budget for the selection step (use 'inf' for public selection)",
     )
     parser.add_argument(
         "--sigma",
@@ -224,14 +224,19 @@ def main():
         f"selecting {n_select}"
     )
 
-    # Step 2: Compute delta if not specified
+    # Step 2: Parse epsilon and compute delta if not specified
+    eps_str = args.epsilon_select.strip().lower()
+    if eps_str in ("inf", "infty", "infinity"):
+        epsilon_select = "inf"
+    else:
+        epsilon_select = float(eps_str)
     delta = args.delta if args.delta is not None else 1.0 / (n_real ** 2)
-    logger.info(f"Privacy: epsilon_select={args.epsilon_select}, delta={delta:.2e}")
+    logger.info(f"Privacy: epsilon_select={epsilon_select}, delta={delta:.2e}")
 
     timing_log = str(Path(args.output_file).parent / "timing.log")
     timer_notes = (
         f"{n_syn} candidates -> {n_select} selected, "
-        f"k={args.k}, eps={args.epsilon_select}"
+        f"k={args.k}, eps={epsilon_select}"
     )
 
     with Timer("stage4_selection", log_file=timing_log, notes=timer_notes):
@@ -258,15 +263,15 @@ def main():
 
         # Step 4: Private selection
         logger.info(
-            f"Running private selection (k={args.k}, "
-            f"epsilon={args.epsilon_select}, sigma={args.sigma})"
+            f"Running {'public' if epsilon_select == 'inf' else 'private'} selection "
+            f"(k={args.k}, epsilon={epsilon_select}, sigma={args.sigma})"
         )
         selected_indices = private_selection(
             real_embeddings=real_embeddings,
             synthetic_embeddings=synthetic_embeddings,
             n_select=n_select,
             k=args.k,
-            epsilon=args.epsilon_select,
+            epsilon=epsilon_select,
             sigma=args.sigma,
             delta=delta,
             seed=args.seed,
@@ -285,7 +290,7 @@ def main():
     logger.info("=" * 60)
     logger.info(f"Selected {len(selected_indices)} tables -> {args.output_file}")
     logger.info(
-        f"Privacy cost: epsilon_select={args.epsilon_select}, delta={delta:.2e}"
+        f"Privacy cost: epsilon_select={epsilon_select}, delta={delta:.2e}"
     )
     logger.info("=" * 60)
 
