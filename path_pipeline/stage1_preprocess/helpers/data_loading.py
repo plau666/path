@@ -23,6 +23,22 @@ FEATURE_COLUMNS = [
     "pain",
 ]
 
+SYNTHETIC_FEATURE_COLUMNS = [
+    "timestep",
+    "Glomozole",
+    "Crirodex",
+    "Criphecor",
+    "Zolsidex",
+    "Zolphephine",
+    "Zolronide",
+]
+
+# Per-dataset (feature_columns, sort_column) for stage-1 preprocessing.
+DATASET_SCHEMAS = {
+    "mimic": (FEATURE_COLUMNS, "charttime"),
+    "synthetic": (SYNTHETIC_FEATURE_COLUMNS, "timestep"),
+}
+
 ID_COLUMNS = ["subject_id", "stay_id"]
 
 
@@ -51,20 +67,22 @@ def load_mimic_csvs(data_dir: str, pattern: str = "expanded_vitalsigns_*.csv") -
     return combined
 
 
-def split_by_subject(df: pd.DataFrame) -> Dict[int, pd.DataFrame]:
-    """Group rows by subject_id, sort each subject's rows by charttime.
+def split_by_subject(df: pd.DataFrame, sort_column: str = "charttime") -> Dict[int, pd.DataFrame]:
+    """Group rows by subject_id, sort each subject's rows by `sort_column`.
 
     Args:
         df: Full DataFrame with all subjects.
+        sort_column: Column name to sort each subject's rows by (e.g. "charttime"
+            for MIMIC, "timestep" for the synthetic dataset).
 
     Returns:
-        Dict mapping subject_id -> DataFrame of that subject's rows, sorted by charttime.
+        Dict mapping subject_id -> DataFrame of that subject's rows, sorted.
     """
     subjects = {}
     for subject_id, group in df.groupby("subject_id"):
-        sorted_group = group.sort_values("charttime").reset_index(drop=True)
+        sorted_group = group.sort_values(sort_column).reset_index(drop=True)
         subjects[subject_id] = sorted_group
-    logger.info(f"Split into {len(subjects)} unique subjects")
+    logger.info(f"Split into {len(subjects)} unique subjects (sorted by {sort_column})")
     return subjects
 
 

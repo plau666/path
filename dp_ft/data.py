@@ -47,12 +47,14 @@ class Seq2SeqDataset(Dataset):
         input_field: str = "input",
         output_field: str = "output",
         template: str = "gemma_it",
+        truncation_side: str = "right",
     ):
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.input_field = input_field
         self.output_field = output_field
         self.template = template
+        self.truncation_side = truncation_side
         self.examples = self._load_jsonl(data_path)
         logger.info(f"Loaded {len(self.examples)} examples from {data_path}")
 
@@ -88,6 +90,8 @@ class Seq2SeqDataset(Dataset):
         full_text = f"{input_text}{output_text}{self.tokenizer.eos_token}"
         output_suffix = f"{output_text}{self.tokenizer.eos_token}"
 
+        prev_side = self.tokenizer.truncation_side
+        self.tokenizer.truncation_side = self.truncation_side
         full_enc = self.tokenizer(
             full_text,
             max_length=self.max_length,
@@ -95,6 +99,7 @@ class Seq2SeqDataset(Dataset):
             padding=False,
             return_tensors=None,
         )
+        self.tokenizer.truncation_side = prev_side
         # Tokenize just the output+eos portion (add_special_tokens=False to avoid BOS)
         output_enc = self.tokenizer(
             output_suffix,
@@ -160,6 +165,7 @@ def build_dataloader(
     num_workers: int = 0,
     max_samples: int = 0,
     template: str = "gemma_it",
+    truncation_side: str = "right",
 ) -> DataLoader:
     """Build DataLoader for seq2seq training.
 
@@ -174,6 +180,7 @@ def build_dataloader(
         input_field=input_field,
         output_field=output_field,
         template=template,
+        truncation_side=truncation_side,
     )
     if max_samples > 0 and len(dataset) > max_samples:
         dataset = torch.utils.data.Subset(dataset, range(max_samples))

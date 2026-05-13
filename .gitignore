@@ -2,6 +2,9 @@ output/*
 data/*
 path_pipeline/preprocessed/*
 path_pipeline/generated/*
+path_pipeline/scripts/*
+path_pipeline/stage2_finetune/configs/*
+
 
 # Python
 __pycache__/

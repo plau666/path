@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from path_pipeline.stage1_preprocess.helpers.data_loading import (
-    FEATURE_COLUMNS,
+    DATASET_SCHEMAS,
     filter_by_trajectory_length,
     load_mimic_csvs,
     split_by_subject,
@@ -46,10 +46,14 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Preprocess MIMIC data for PATH training")
+    parser = argparse.ArgumentParser(description="Preprocess data for PATH training")
+    parser.add_argument(
+        "--dataset", type=str, default="mimic", choices=sorted(DATASET_SCHEMAS.keys()),
+        help="Dataset schema: 'mimic' (vital signs) or 'synthetic' (drug measurements)",
+    )
     parser.add_argument(
         "--data_dir", type=str, required=True,
-        help="Directory containing MIMIC CSV files",
+        help="Directory containing CSV files",
     )
     parser.add_argument(
         "--output_dir", type=str, default="path_pipeline/preprocessed",
@@ -91,8 +95,10 @@ def save_stats(subjects, output_dir, prefix):
 def main():
     args = parse_args()
 
+    feature_columns, sort_column = DATASET_SCHEMAS[args.dataset]
+
     logger.info("=" * 60)
-    logger.info("Stage 1: MIMIC Preprocessing")
+    logger.info(f"Stage 1: Preprocessing ({args.dataset})")
     logger.info("=" * 60)
 
     # Step 1: Load CSV data
@@ -101,8 +107,8 @@ def main():
     logger.info(f"Columns: {list(df.columns)}")
 
     # Step 2: Split by subject
-    logger.info("Splitting by subject_id...")
-    subjects = split_by_subject(df)
+    logger.info(f"Splitting by subject_id (sort by {sort_column})...")
+    subjects = split_by_subject(df, sort_column=sort_column)
 
     # Step 3: Filter by trajectory length
     logger.info(f"Filtering to subjects with {args.min_rows} <= T <= {args.max_rows} rows...")
@@ -134,19 +140,19 @@ def main():
     train_examples = build_examples_for_subjects(
         train_subjects,
         schema_only_fraction=args.schema_only_fraction,
-        columns=FEATURE_COLUMNS,
+        columns=feature_columns,
         seed=args.seed,
     )
     test_examples = build_examples_for_subjects(
         test_subjects,
         schema_only_fraction=args.schema_only_fraction,
-        columns=FEATURE_COLUMNS,
+        columns=feature_columns,
         seed=args.seed + 1,  # different seed for test
     )
 
     # Step 7: Save JSONL files
-    train_path = str(output_dir / "mimic_train.jsonl")
-    test_path = str(output_dir / "mimic_test.jsonl")
+    train_path = str(output_dir / f"{args.dataset}_train.jsonl")
+    test_path = str(output_dir / f"{args.dataset}_test.jsonl")
     save_examples_jsonl(train_examples, train_path)
     save_examples_jsonl(test_examples, test_path)
 

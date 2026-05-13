@@ -14,7 +14,7 @@ shift
 
 NGPUS=${NGPUS:-$(nvidia-smi -L | wc -l)}
 
-torchrun \
+/opt/conda/bin/torchrun \
     --nproc_per_node=${NGPUS} \
     "${SCRIPT_DIR}/../run.py" \
     --config ${CONFIG} \

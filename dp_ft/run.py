@@ -55,6 +55,8 @@ def parse_args():
     data_group.add_argument("--max_length", type=int, default=512, help="Max sequence length")
     data_group.add_argument("--input_field", type=str, default="input", help="JSONL field name for input")
     data_group.add_argument("--output_field", type=str, default="output", help="JSONL field name for output")
+    data_group.add_argument("--truncation_side", type=str, default="right", choices=["left", "right"],
+                            help="Truncation side when sequence exceeds max_length")
 
     # Privacy
     privacy_group = parser.add_argument_group("Privacy")
@@ -171,6 +173,7 @@ def main():
         output_field=args.output_field,
         shuffle=True,
         template=template,
+        truncation_side=args.truncation_side,
     )
 
     # Eval DataLoader (no DP wrapping needed — just forward passes)
@@ -186,6 +189,7 @@ def main():
             shuffle=False,
             max_samples=2048,
             template=template,
+            truncation_side=args.truncation_side,
         )
         if is_main_process():
             logger.info(f"Eval dataset: {len(eval_dataloader.dataset)} examples")
